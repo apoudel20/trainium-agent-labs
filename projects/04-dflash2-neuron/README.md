@@ -1,11 +1,14 @@
-# Project 4 — DFlash2 speculative decoding on Trainium
+# Project 4 - DFlash speculative decoding on Trainium
 
-**DFlash2 now runs on Trainium 2 through vLLM Neuron, and makes Qwen3-8B decode 1.33x faster.**
+**DFlash runs on Trainium 2 through vLLM Neuron. A bidirectional query-block attention
+change in the draft raises Qwen3-8B decode throughput to 1.70x (k=4) over the no-speculation
+baseline.**
 
-[DFlash](https://huggingface.co/z-lab/Qwen3-8B-DFlash-b16) is a speculative-decoding draft
-model: a small 5-layer model reads hidden states from the target model and proposes several
-next tokens in one pass, and the target model checks them all in a single forward pass. vLLM
-supports it on GPU; the Neuron backend did not. Before this change, serving it failed with:
+[DFlash](https://huggingface.co/z-lab/Qwen3-8B-DFlash-b16) is a block-diffusion
+speculative-decoding draft model: a small 5-layer model reads hidden states from the target
+model and proposes several next tokens in one pass, and the target model checks them all in a
+single forward pass. vLLM supports it on GPU; the Neuron backend did not. Before this change,
+serving it failed with:
 
 ```
 AttributeError: type object 'DFlashQwen3ForCausalLM' has no attribute 'from_configs'
@@ -20,28 +23,30 @@ Measured on one `trn2` chip (seat-40), TP=2, one request at a time, greedy decod
 (`max_model_len=256`, `max_num_seqs=1`, `max_num_batched_tokens=256`); only the
 `--speculative-config` flag differs.
 
-| config | tokens/s | per-request median | speedup | draft acceptance | tokens per target step |
-|---|---|---|---|---|---|
-| Qwen3-8B (baseline) | 51.9 | 51.9 | 1.00x | n/a | 1.00 |
-| Qwen3-8B + DFlash2, 4 draft tokens | 68.9 | 65.7 | **1.33x** | 20.1% (344/1708) | 1.81 |
-| Qwen3-8B + DFlash2, 8 draft tokens | 69.0 | 68.2 | **1.33x** | 11.1% (362/3272) | 1.89 |
-| Qwen3-8B + DFlash2, 15 draft tokens | 67.3 | 65.7 | 1.30x | 6.0% (365/6060) | 1.90 |
+| config | tokens/s | per-request median | speedup | draft acceptance |
+|---|---|---|---|---|
+| Qwen3-8B (autoregressive baseline) | 51.7 | 51.7 | 1.00x | n/a |
+| DFlash k=2, causal | 64.7 | 65.0 | 1.25x | 33.1% |
+| DFlash k=2, bidirectional | 73.8 | 76.0 | 1.43x | 44.0% |
+| DFlash k=4, causal | 69.3 | 66.5 | 1.34x | 20.1% |
+| DFlash k=4, bidirectional | 88.1 | 85.9 | **1.70x** | 32.7% |
+| DFlash k=8, causal | 69.0 | 68.2 | 1.33x | 11.1% |
+| DFlash k=8, bidirectional | 89.4 | 89.2 | **1.73x** | 17.8% |
 
 ![acceptance by draft position](results/acceptance.svg)
 
-**4 draft tokens is the sweet spot for now.** Going from 4 to 8 to 15 drafts adds almost no
-accepted tokens (344 → 362 → 365): positions 5–8 are rarely accepted (17, 9, 6 and 2 times
-with 8 drafts) and positions 9–15 never were. Each extra draft still has to be verified by the
-target (6 tokens per step with 4 drafts, 16 with 15), so throughput stays flat at 1.33x and drops
-to 1.30x at 15. Raising acceptance at later positions (see
-[Limitations](#limitations-and-next-steps)) is what would make longer drafts pay off.
+Throughput peaks around k=4-k=8. Accepted tokens by position fall off after position 4
+(bidirectional k=8: 204/118/64/33/17/7/5/5), so additional draft positions contribute little
+while each still requires target verification. Causal k=15 (67.3 tok/s) was slower than causal
+k=8 (69.0 tok/s) for this reason. Higher acceptance at later positions is what would make
+longer drafts worthwhile.
 
 Raw output: [`results/`](results/) (one file per run). Regenerate the table and charts with
 `python3 make_charts.py`.
 
 **Output check.** Both servers give the same greedy text for about the first 95 tokens of
-prompt 1, then diverge on a near-tie (`"…which is then mapped to an index…"` vs
-`"…which is then used to determine…"`). Both continuations are coherent. The likely cause is
+prompt 1, then diverge on a near-tie (`"which is then mapped to an index"` vs
+`"which is then used to determine"`). Both continuations are coherent. The likely cause is
 bf16 rounding: the target scores 5 tokens per step when verifying instead of 1, a different
 kernel shape. Speculative decoding on GPU in bf16 is also not bit-exact for the same reason.
 
@@ -56,7 +61,7 @@ bash serve_dflash2.sh              # Qwen3-8B + DFlash2 on :8000 (DFLASH_NUM_SPE
 bash tools/wait_log.sh             # returns when the server is ready or failed (max 60s per call)
 bash run_bench.sh 4                # benchmark, saved to results/bench_dflash2_k4.txt
 
-bash serve_baseline.sh             # same config, no speculation, for the comparison
+bash serve_baseline.sh             # same config, autoregressive, for the comparison
 bash tools/wait_log.sh /tmp/baseline.log
 bash run_bench.sh 0                # saved to results/bench_baseline.txt
 
@@ -82,7 +87,7 @@ speculative-decoding plumbing and the target-side hidden-state capture interface
 
 | File | Change |
 |---|---|
-| `vllm_neuron/model/qwen3/dflash_draft.py` (new) | Neuron DFlash2 draft model: 5 Qwen3 layers + `fc` + `hidden_norm`, layers named 36–40 so their KV cache doesn't collide with the target's |
+| `vllm_neuron/model/qwen3/dflash_draft.py` (new) | Neuron DFlash2 draft model: 5 Qwen3 layers + `fc` + `hidden_norm`, layers named 36-40 so their KV cache doesn't collide with the target's |
 | `vllm_neuron/vllm/spec_decode/dflash2.py` (new) | `DFlash2Proposer`: loads the draft and its weights, loads `embed_tokens`/`lm_head` from the target (DFlash2 checkpoints don't ship them), feeds the draft 5 target hidden states |
 | `vllm_neuron/model/qwen3/model.py` | Qwen3 target captures hidden states at the layers DFlash2 reads (`target_layer_ids` + 1 = 2, 10, 18, 26, 34) and returns them to the runner; weight loading accepts the DFlash2 checkpoint layout (bare keys, no embedding / LM head); KV cache names use each layer's own index |
 | `vllm_neuron/model/registry.py` | registers `DFlashDraftModel` |
@@ -93,18 +98,18 @@ speculative-decoding plumbing and the target-side hidden-state capture interface
 1. **Context:** `ctx = hidden_norm(fc(concat of 5 target hidden states))`. For each draft layer,
    K/V of `ctx` (K with `k_norm` + RoPE) are written straight into that layer's KV cache at the
    target tokens' slots.
-2. **Query block:** `[next token, MASK, MASK, MASK, MASK]` at positions `p+1 … p+5` run through
+2. **Query block:** `[next token, MASK, MASK, MASK, MASK]` at positions `p+1 - p+5` run through
    the 5 draft layers with the existing Neuron decode attention, which reads the context K/V.
 3. **Drafts:** greedy tokens at the 4 MASK positions. The target verifies them with vLLM's
    rejection sampler, so wrong drafts are discarded and output quality is unaffected.
 
 ## Limitations and next steps
 
-- **Attention inside the query block is causal**, not bidirectional as in the GPU reference.
-  This reuses the existing Neuron decode kernel with no new attention code. Output stays
-  correct because the target verifies every draft token, but acceptance is lower than DFlash2
-  can reach. Adding a non-causal mask for the query block is the most direct way to raise
-  acceptance above the current 20%.
+- **Query-block attention.** The initial Neuron port used a causal mask inside the draft
+  query block, which reused the existing decode kernel but reached lower acceptance than the
+  draft's training configuration. The current build uses a bidirectional (all-ones) active
+  mask for the query block, matching how the draft was trained; this raised k=4 acceptance
+  from 20.1% to 32.7% and k=4 throughput from 1.34x to 1.70x.
 - **Draft count.** The checkpoint was trained for blocks of 16 (`b16`), so up to 15 drafts
   per step are possible. Measured: 4 and 8 drafts both give 1.33x and 15 gives 1.30x, because
   acceptance falls off quickly after position 4 and is zero after position 8. Longer drafts only
