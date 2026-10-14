@@ -1,3 +1,4 @@
+# mask_mode=causal bidirectional_attention_patch=not-applied
 # python3 bench_dflash2.py --max-tokens 128 --runs 2
 # server: DFLASH_NUM_SPEC=15 bash serve_dflash2.sh  (Qwen/Qwen3-8B + z-lab/Qwen3-8B-DFlash-b16, 15 draft tokens)
 # seat-40, trn2 (1 chip, TP=2), 2026-10-10 22:21 UTC

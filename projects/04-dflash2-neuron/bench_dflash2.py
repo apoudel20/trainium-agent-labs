@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""bench_dflash2.py — decode throughput + DFlash2 acceptance against a running vLLM.
+"""bench_dflash2.py — decode throughput + DFlash acceptance against a running vLLM.
 
-Usage: python3 /workspace/bench_dflash2.py [--url http://localhost:8000] [--max-tokens 128] [--runs 3]
+Usage: python3 bench_dflash2.py [--url http://localhost:8000] [--max-tokens 128] [--runs 3]
 Greedy (temperature 0), one request at a time, fixed prompts. Prints per-run tokens/s,
 the generated text of the first prompt (sanity check), and speculative-decoding counters
 from /metrics (accepted vs drafted tokens) when they exist.
@@ -49,8 +49,15 @@ def main():
     ap.add_argument("--url", default="http://localhost:8000")
     ap.add_argument("--max-tokens", type=int, default=128)
     ap.add_argument("--runs", type=int, default=3)
+    ap.add_argument(
+        "--mask-mode",
+        choices=("baseline", "causal", "bidirectional"),
+        default="baseline",
+        help="query-block attention mode; recorded in output for provenance",
+    )
     a = ap.parse_args()
 
+    print(f"mask mode: {a.mask_mode}")
     model = json.loads(urllib.request.urlopen(f"{a.url}/v1/models", timeout=10).read())["data"][0]["id"]
     before = spec_metrics(a.url)
 
