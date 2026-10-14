@@ -1,20 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="680" height="338" viewBox="0 0 680 338" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
-<title id="t">Qwen3-8B decode throughput on Trainium 2 vs number of DFlash2 draft tokens</title>
-<desc id="d">baseline: 51.9 tokens per second; 4 draft tokens: 68.9 tokens per second; 8 draft tokens: 69.0 tokens per second; 15 draft tokens: 67.3 tokens per second</desc>
-<rect width="680" height="338" fill="#fff"/>
-<text x="340.0" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#111">Qwen3-8B on Trainium 2 — decode throughput</text>
-<text x="340.0" y="52" text-anchor="middle" font-size="12" fill="#444">1 request, greedy, 128 new tokens, TP=2 on one trn2 chip, same server config</text>
-<line x1="200" y1="72" x2="200" y2="298" stroke="#333"/>
-<text x="190" y="102.1" text-anchor="end" font-size="14" fill="#111">Baseline (no drafts)</text>
-<rect x="200" y="80" width="204.6" height="34" fill="#6b7280"/>
-<text x="412.6" y="102.1" font-size="14" fill="#111">51.9 tok/s (1.00x)</text>
-<text x="190" y="154.1" text-anchor="end" font-size="14" fill="#111">DFlash2, 4 draft tokens</text>
-<rect x="200" y="132" width="271.6" height="34" fill="#2563eb"/>
-<text x="479.6" y="154.1" font-size="14" fill="#111" font-weight="bold">68.9 tok/s (1.33x)</text>
-<text x="190" y="206.1" text-anchor="end" font-size="14" fill="#111">DFlash2, 8 draft tokens</text>
-<rect x="200" y="184" width="272.0" height="34" fill="#2563eb"/>
-<text x="480.0" y="206.1" font-size="14" fill="#111" font-weight="bold">69.0 tok/s (1.33x)</text>
-<text x="190" y="258.1" text-anchor="end" font-size="14" fill="#111">DFlash2, 15 draft tokens</text>
-<rect x="200" y="236" width="265.3" height="34" fill="#2563eb"/>
-<text x="473.3" y="258.1" font-size="14" fill="#111" font-weight="bold">67.3 tok/s (1.30x)</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="426" viewBox="0 0 760 426" role="img">
+<title>Qwen3-8B decode throughput on AWS Trainium2</title>
+<desc>Baseline and DFlash causal and bidirectional query-block mask throughput.</desc>
+<rect width="760" height="426" fill="white"/>
+<text x="380.0" y="27" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="700">Qwen3-8B decode throughput on AWS Trainium2</text>
+<text x="380.0" y="49" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#475569">six requests per configuration; one request at a time; 128 completion tokens each</text>
+<text x="200" y="93" text-anchor="end" font-family="sans-serif" font-size="13">baseline</text>
+<rect x="210" y="77" width="214.4" height="23" rx="2" fill="#64748b"/>
+<text x="432.4" y="93" font-family="sans-serif" font-size="13" font-weight="700">51.7 tok/s</text>
+<text x="200" y="132" text-anchor="end" font-family="sans-serif" font-size="13">k=2 causal</text>
+<rect x="210" y="116" width="268.3" height="23" rx="2" fill="#ea580c"/>
+<text x="486.3" y="132" font-family="sans-serif" font-size="13" font-weight="700">64.7 tok/s</text>
+<text x="200" y="171" text-anchor="end" font-family="sans-serif" font-size="13">k=2 bidirectional</text>
+<rect x="210" y="155" width="306.0" height="23" rx="2" fill="#2563eb"/>
+<text x="524.0" y="171" font-family="sans-serif" font-size="13" font-weight="700">73.8 tok/s</text>
+<text x="200" y="210" text-anchor="end" font-family="sans-serif" font-size="13">k=4 causal</text>
+<rect x="210" y="194" width="287.3" height="23" rx="2" fill="#ea580c"/>
+<text x="505.3" y="210" font-family="sans-serif" font-size="13" font-weight="700">69.3 tok/s</text>
+<text x="200" y="249" text-anchor="end" font-family="sans-serif" font-size="13">k=4 bidirectional</text>
+<rect x="210" y="233" width="365.3" height="23" rx="2" fill="#2563eb"/>
+<text x="583.3" y="249" font-family="sans-serif" font-size="13" font-weight="700">88.1 tok/s</text>
+<text x="200" y="288" text-anchor="end" font-family="sans-serif" font-size="13">k=8 causal</text>
+<rect x="210" y="272" width="286.1" height="23" rx="2" fill="#ea580c"/>
+<text x="504.1" y="288" font-family="sans-serif" font-size="13" font-weight="700">69.0 tok/s</text>
+<text x="200" y="327" text-anchor="end" font-family="sans-serif" font-size="13">k=8 bidirectional</text>
+<rect x="210" y="311" width="370.7" height="23" rx="2" fill="#2563eb"/>
+<text x="588.7" y="327" font-family="sans-serif" font-size="13" font-weight="700">89.4 tok/s</text>
+<text x="200" y="366" text-anchor="end" font-family="sans-serif" font-size="13">k=15 causal</text>
+<rect x="210" y="350" width="279.1" height="23" rx="2" fill="#ea580c"/>
+<text x="497.1" y="366" font-family="sans-serif" font-size="13" font-weight="700">67.3 tok/s</text>
 </svg>

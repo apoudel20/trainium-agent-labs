@@ -1,47 +1,46 @@
-# Next experiments
+# Follow-up work
 
-Speedups are relative to the no-speculation baseline (51.7 tok/s), measured on one
-trn2 chip (seat-40), TP=2, greedy, 128 new tokens. Current best: bidirectional
-k=4/k=8 at 88-89 tok/s (1.70-1.73x).
+The completed 8B experiment serves `Qwen/Qwen3-8B` with the original
+`z-lab/Qwen3-8B-DFlash-b16` draft on one AWS Trainium2 chip. At k=4, bidirectional
+query-block attention measured 88.1 tok/s (1.70x over the 51.7 tok/s baseline) and 32.7%
+draft-token acceptance.
 
-## Draft-token count has limited headroom
+## Draft count
 
-Accepted tokens by draft position (k=8 bidirectional run):
+Accepted tokens by draft position in the k=8 bidirectional run were:
 
-| position | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
-|---------:|---:|---:|--:|--:|--:|--:|--:|--:|
-| accepted | 204 | 118 | 64 | 33 | 17 | 7 | 5 | 5 |
+| Position | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Accepted | 204 | 118 | 64 | 33 | 17 | 7 | 5 | 5 |
 
-Acceptance falls off after position 4 and is near-flat (5-7) by positions 5-7.
-Each additional drafted position costs a target verification while contributing
-few accepted tokens, so causal k=15 (67.3 tok/s) was slower than k=8 (69.0 tok/s).
-The limiting factor is draft quality, not draft-token count.
+Acceptance falls sharply across the block. The causal k=15 run reached 67.3 tok/s, below the
+causal k=8 run at 69.0 tok/s. Bidirectional k=15 was not measured, so the available evidence
+does not establish its result. Measuring k=5, k=6, and bidirectional k=15 would locate the
+throughput peak more precisely.
 
-## Directions
+## Later DFlash 2 checkpoint
 
-### 1. DFlash2 draft with the candidate selector
-The deployed 8B draft is unary DFlash (greedy top-1 per position). The DFlash2
-draft reranks top-16 candidates per position via a predecessor/successor
-transition score and walks one coherent path, which raises acceptance across
-positions. Components are implemented and verified against the released weights
-(`dflash2_27b/dflash2_components.py`, `DFLASH2_COMPONENTS: PASS`).
-Remaining: wire into a Neuron proposer.
+The served 8B checkpoint is DFlash, not DFlash 2. The later
+[`z-lab/Qwen3.8-27B-DFlash2`](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2)
+draft adds dynamic convolution and candidate selection. The component checks in
+[`dflash2_27b/`](dflash2_27b/) load released weights and validate those mechanisms in
+isolation; they do not provide an end-to-end Neuron server.
 
-### 2. Qwen3.8-27B with DFlash2, end to end
-The model pair the DFlash2 draft was trained for. Both Qwen3.5 attention variants
-(GatedDeltaNet/SSM + full) are validated against the real 27B weights; the DFlash2
-convolution and selector are validated. Remaining is the Neuron assembly of the
-64-layer hybrid decoder (dual KV + SSM-state cache) and serving.
+The matching `Qwen/Qwen3.8-27B` target reports `model_type: qwen3_5_text`. In other words,
+Qwen3.8 uses the Qwen3.5 hybrid text architecture: interleaved linear-attention/SSM and
+full-attention layers. The installed Neuron backend implements dense Qwen3, not that hybrid
+64-layer target. End-to-end serving therefore requires a Neuron implementation of the hybrid
+decoder and its SSM state cache before the DFlash 2 components can be connected.
 
-### 3. Bidirectional k=12 / k=15
-Not yet measured with the bidirectional patch (only causal was run at k=15). The
-per-position data suggests a plateau; running these would establish the upper bound.
+## Other measurements
 
-### 4. Bidirectional k=5 / k=6
-k=4 (88.1 tok/s) and k=8 (89.4 tok/s) are within ~1.5%. Measuring k=5/k=6 would
-locate the throughput peak between them.
+The current benchmark covers one request at a time and a 256-token model length. Useful
+follow-ups are:
 
-## Status
-These require the Trainium pod. The DFlash2 draft components and both Qwen3.5
-attention variants are verified in isolation against the released weights; the
-end-to-end 27B serve is not yet implemented.
+1. Repeat the comparison at longer context lengths.
+2. Measure concurrency above one; speculative verification cost can scale differently with
+   batch size.
+3. Profile target verification and draft execution separately with Neuron Explorer.
+4. Compare this hackathon implementation with the broader upstream work in
+   [vllm-neuron#47](https://github.com/vllm-project/vllm-neuron/pull/47) and
+   [vllm-neuron#50](https://github.com/vllm-project/vllm-neuron/pull/50).

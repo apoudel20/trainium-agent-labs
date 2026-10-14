@@ -1,71 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="680" height="340" viewBox="0 0 680 340" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
-<title id="t">Share of DFlash2 draft steps where draft position N was accepted</title>
-<desc id="d">4 drafts: position 1 44%, position 2 21%, position 3 11%, position 4 6%; 8 drafts: position 1 42%, position 2 20%, position 3 12%, position 4 7%, position 5 4%, position 6 2%, position 7 1%, position 8 0%; 15 drafts: position 1 44%, position 2 20%, position 3 11%, position 4 6%, position 5 4%, position 6 2%, position 7 2%, position 8 0%, position 9 0%, position 10 0%, position 11 0%, position 12 0%, position 13 0%, position 14 0%, position 15 0%</desc>
-<rect width="680" height="340" fill="#fff"/>
-<text x="340.0" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#111">Draft acceptance by position</text>
-<text x="340.0" y="48" text-anchor="middle" font-size="12" fill="#444">share of draft steps in which the target accepted draft token N</text>
-<line x1="70" y1="280.0" x2="530" y2="280.0" stroke="#e5e7eb"/>
-<text x="62" y="284.0" text-anchor="end" font-size="11" fill="#444">0%</text>
-<line x1="70" y1="238.0" x2="530" y2="238.0" stroke="#e5e7eb"/>
-<text x="62" y="242.0" text-anchor="end" font-size="11" fill="#444">20%</text>
-<line x1="70" y1="196.0" x2="530" y2="196.0" stroke="#e5e7eb"/>
-<text x="62" y="200.0" text-anchor="end" font-size="11" fill="#444">40%</text>
-<line x1="70" y1="154.0" x2="530" y2="154.0" stroke="#e5e7eb"/>
-<text x="62" y="158.0" text-anchor="end" font-size="11" fill="#444">60%</text>
-<line x1="70" y1="112.0" x2="530" y2="112.0" stroke="#e5e7eb"/>
-<text x="62" y="116.0" text-anchor="end" font-size="11" fill="#444">80%</text>
-<line x1="70" y1="70.0" x2="530" y2="70.0" stroke="#e5e7eb"/>
-<text x="62" y="74.0" text-anchor="end" font-size="11" fill="#444">100%</text>
-<text x="70.0" y="298" text-anchor="middle" font-size="11" fill="#444">1</text>
-<text x="102.9" y="298" text-anchor="middle" font-size="11" fill="#444">2</text>
-<text x="135.7" y="298" text-anchor="middle" font-size="11" fill="#444">3</text>
-<text x="168.6" y="298" text-anchor="middle" font-size="11" fill="#444">4</text>
-<text x="201.4" y="298" text-anchor="middle" font-size="11" fill="#444">5</text>
-<text x="234.3" y="298" text-anchor="middle" font-size="11" fill="#444">6</text>
-<text x="267.1" y="298" text-anchor="middle" font-size="11" fill="#444">7</text>
-<text x="300.0" y="298" text-anchor="middle" font-size="11" fill="#444">8</text>
-<text x="332.9" y="298" text-anchor="middle" font-size="11" fill="#444">9</text>
-<text x="365.7" y="298" text-anchor="middle" font-size="11" fill="#444">10</text>
-<text x="398.6" y="298" text-anchor="middle" font-size="11" fill="#444">11</text>
-<text x="431.4" y="298" text-anchor="middle" font-size="11" fill="#444">12</text>
-<text x="464.3" y="298" text-anchor="middle" font-size="11" fill="#444">13</text>
-<text x="497.1" y="298" text-anchor="middle" font-size="11" fill="#444">14</text>
-<text x="530.0" y="298" text-anchor="middle" font-size="11" fill="#444">15</text>
-<text x="300.0" y="326" text-anchor="middle" font-size="12" fill="#444">draft position</text>
-<polyline points="70.0,188.5 102.9,236.7 135.7,257.9 168.6,267.7" fill="none" stroke="#2563eb" stroke-width="2.5"/>
-<circle cx="70.0" cy="188.5" r="3.5" fill="#2563eb"/>
-<circle cx="102.9" cy="236.7" r="3.5" fill="#2563eb"/>
-<circle cx="135.7" cy="257.9" r="3.5" fill="#2563eb"/>
-<circle cx="168.6" cy="267.7" r="3.5" fill="#2563eb"/>
-<rect x="548" y="80" width="14" height="4" fill="#2563eb"/>
-<text x="568" y="86" font-size="12" fill="#111">4 drafts</text>
-<polyline points="70.0,192.7 102.9,237.9 135.7,254.8 168.6,266.1 201.4,271.3 234.3,275.4 267.1,276.9 300.0,279.0" fill="none" stroke="#16a34a" stroke-width="2.5"/>
-<circle cx="70.0" cy="192.7" r="3.5" fill="#16a34a"/>
-<circle cx="102.9" cy="237.9" r="3.5" fill="#16a34a"/>
-<circle cx="135.7" cy="254.8" r="3.5" fill="#16a34a"/>
-<circle cx="168.6" cy="266.1" r="3.5" fill="#16a34a"/>
-<circle cx="201.4" cy="271.3" r="3.5" fill="#16a34a"/>
-<circle cx="234.3" cy="275.4" r="3.5" fill="#16a34a"/>
-<circle cx="267.1" cy="276.9" r="3.5" fill="#16a34a"/>
-<circle cx="300.0" cy="279.0" r="3.5" fill="#16a34a"/>
-<rect x="548" y="102" width="14" height="4" fill="#16a34a"/>
-<text x="568" y="108" font-size="12" fill="#111">8 drafts</text>
-<polyline points="70.0,188.5 102.9,237.9 135.7,256.1 168.6,266.5 201.4,271.7 234.3,274.8 267.1,275.8 300.0,279.0 332.9,280.0 365.7,280.0 398.6,280.0 431.4,280.0 464.3,280.0 497.1,280.0 530.0,280.0" fill="none" stroke="#dc2626" stroke-width="2.5"/>
-<circle cx="70.0" cy="188.5" r="3.5" fill="#dc2626"/>
-<circle cx="102.9" cy="237.9" r="3.5" fill="#dc2626"/>
-<circle cx="135.7" cy="256.1" r="3.5" fill="#dc2626"/>
-<circle cx="168.6" cy="266.5" r="3.5" fill="#dc2626"/>
-<circle cx="201.4" cy="271.7" r="3.5" fill="#dc2626"/>
-<circle cx="234.3" cy="274.8" r="3.5" fill="#dc2626"/>
-<circle cx="267.1" cy="275.8" r="3.5" fill="#dc2626"/>
-<circle cx="300.0" cy="279.0" r="3.5" fill="#dc2626"/>
-<circle cx="332.9" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="365.7" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="398.6" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="431.4" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="464.3" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="497.1" cy="280.0" r="3.5" fill="#dc2626"/>
-<circle cx="530.0" cy="280.0" r="3.5" fill="#dc2626"/>
-<rect x="548" y="124" width="14" height="4" fill="#dc2626"/>
-<text x="568" y="130" font-size="12" fill="#111">15 drafts</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="350" viewBox="0 0 760 350" role="img">
+<title>Accepted DFlash tokens by draft position at k=8</title>
+<desc>Counts for causal and bidirectional query-block attention.</desc>
+<rect width="760" height="350" fill="white"/>
+<text x="380.0" y="28" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="700">Accepted DFlash tokens by position (k=8)</text>
+<line x1="65" y1="285.0" x2="630" y2="285.0" stroke="#e2e8f0"/>
+<text x="57" y="289.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">0</text>
+<line x1="65" y1="231.1" x2="630" y2="231.1" stroke="#e2e8f0"/>
+<text x="57" y="235.1" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">50</text>
+<line x1="65" y1="177.2" x2="630" y2="177.2" stroke="#e2e8f0"/>
+<text x="57" y="181.2" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">100</text>
+<line x1="65" y1="123.2" x2="630" y2="123.2" stroke="#e2e8f0"/>
+<text x="57" y="127.2" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">150</text>
+<line x1="65" y1="69.3" x2="630" y2="69.3" stroke="#e2e8f0"/>
+<text x="57" y="73.3" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">200</text>
+<text x="65.0" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">0</text>
+<text x="145.7" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">1</text>
+<text x="226.4" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">2</text>
+<text x="307.1" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">3</text>
+<text x="387.9" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">4</text>
+<text x="468.6" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">5</text>
+<text x="549.3" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">6</text>
+<text x="630.0" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">7</text>
+<polyline points="65.0,101.7 145.7,196.6 226.4,232.2 307.1,255.9 387.9,266.7 468.6,275.3 549.3,278.5 630.0,282.8" fill="none" stroke="#ea580c" stroke-width="3"/>
+<circle cx="65.0" cy="101.7" r="4" fill="#ea580c"/>
+<circle cx="145.7" cy="196.6" r="4" fill="#ea580c"/>
+<circle cx="226.4" cy="232.2" r="4" fill="#ea580c"/>
+<circle cx="307.1" cy="255.9" r="4" fill="#ea580c"/>
+<circle cx="387.9" cy="266.7" r="4" fill="#ea580c"/>
+<circle cx="468.6" cy="275.3" r="4" fill="#ea580c"/>
+<circle cx="549.3" cy="278.5" r="4" fill="#ea580c"/>
+<circle cx="630.0" cy="282.8" r="4" fill="#ea580c"/>
+<polyline points="65.0,65.0 145.7,157.7 226.4,216.0 307.1,249.4 387.9,266.7 468.6,277.5 549.3,279.6 630.0,279.6" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="65.0" cy="65.0" r="4" fill="#2563eb"/>
+<circle cx="145.7" cy="157.7" r="4" fill="#2563eb"/>
+<circle cx="226.4" cy="216.0" r="4" fill="#2563eb"/>
+<circle cx="307.1" cy="249.4" r="4" fill="#2563eb"/>
+<circle cx="387.9" cy="266.7" r="4" fill="#2563eb"/>
+<circle cx="468.6" cy="277.5" r="4" fill="#2563eb"/>
+<circle cx="549.3" cy="279.6" r="4" fill="#2563eb"/>
+<circle cx="630.0" cy="279.6" r="4" fill="#2563eb"/>
+<line x1="650" y1="84" x2="676" y2="84" stroke="#ea580c" stroke-width="3"/>
+<text x="684" y="88" font-family="sans-serif" font-size="12">causal</text>
+<line x1="650" y1="108" x2="676" y2="108" stroke="#2563eb" stroke-width="3"/>
+<text x="684" y="112" font-family="sans-serif" font-size="12">bidirectional</text>
+<text x="347.5" y="334" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#475569">draft position (0 is the first proposal)</text>
 </svg>

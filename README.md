@@ -1,3 +1,10 @@
+## Featured project: DFlash on AWS Trainium2
+
+[Implementation and reproduction](projects/04-dflash2-neuron/) · [Live benchmark results](https://apoudel20.github.io/trainium-agent-labs/)
+
+---
+
+
 # Hack the Chip — NYU × Annapurna Labs
 
 **Annapurna Labs** is the Amazon team that designs **AWS Trainium**, the custom silicon behind a large

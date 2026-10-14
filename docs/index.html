@@ -1,55 +1,187 @@
-<!doctype html><html><head><meta charset="utf-8">
-<title>DFlash speculative decoding on Trainium - bidirectional query-block attention</title>
-<style>
-body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#222}
-h1{font-size:1.5rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:4px}
-table{border-collapse:collapse;width:100%;margin-top:1rem;font-size:.9rem}
-th,td{border:1px solid #ddd;padding:6px 10px} th{background:#f5f5f5;text-align:left}
-.card{border:1px solid #eee;border-radius:8px;padding:12px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.k{color:#2f7ed8;font-weight:600}
-small{color:#666}
-</style></head><body>
-<h1>DFlash speculative decoding on Trainium 2</h1>
-<p>Target Qwen3-8B with the z-lab/Qwen3-8B-DFlash-b16 draft (5 Qwen3 layers, block-diffusion
-drafting, greedy unary token selection), one <code>trn2</code> chip (seat-40), TP=2,
-greedy, 128 new tokens, 3 prompts x 2 runs, same server config across all rows (only <code>--speculative-config</code> differs).
-<br><small>Comparison of causal vs bidirectional query-block attention in the draft (raw PyTorch, all-ones active mask). The bidirectional mask matches the draft's training configuration.</small></p>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DFlash speculative decoding on AWS Trainium2 — Aayush Poudel</title>
+  <meta name="description" content="A vLLM-Neuron port of DFlash for Qwen3-8B, measured at 1.70x decode throughput with four draft tokens on AWS Trainium2.">
+  <meta property="og:title" content="DFlash speculative decoding on AWS Trainium2">
+  <meta property="og:description" content="Qwen3-8B measured 1.70x decode throughput; a bidirectional draft mask raised acceptance from 20.1% to 32.7% at k=4.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://apoudel20.github.io/trainium-agent-labs/">
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#526071; --line:#dbe2ea; --blue:#1d4ed8; --bg:#f8fafc; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif; }
+    main { max-width:940px; margin:auto; padding:42px 22px 60px; }
+    h1 { font-size:clamp(2rem,5vw,3.2rem); line-height:1.08; margin:0 0 10px; letter-spacing:-.03em; }
+    h2 { margin:40px 0 12px; font-size:1.45rem; }
+    h3 { margin:24px 0 8px; }
+    p { max-width:78ch; }
+    .byline,.note { color:var(--muted); }
+    .links { display:flex; flex-wrap:wrap; gap:8px 18px; margin:18px 0 28px; }
+    a { color:var(--blue); text-decoration-thickness:1px; text-underline-offset:3px; }
+    .summary { background:#fff; border:1px solid var(--line); border-left:5px solid var(--blue); border-radius:8px; padding:18px 20px; font-size:1.08rem; }
+    .chart { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; margin:18px 0; }
+    .chart svg { display:block; max-width:100%; height:auto; margin:auto; }
+    .table-wrap { overflow-x:auto; }
+    table { border-collapse:collapse; width:100%; min-width:760px; background:#fff; font-size:.92rem; }
+    th,td { border:1px solid var(--line); padding:9px 10px; text-align:right; white-space:nowrap; }
+    th:first-child,td:first-child { text-align:left; }
+    thead th { background:#eef2f7; }
+    tr.highlight td { background:#eff6ff; font-weight:700; }
+    code { background:#e9eef5; padding:.1em .3em; border-radius:4px; }
+    footer { margin-top:48px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); }
+  </style>
+</head>
+<body><main>
+  <h1>DFlash speculative decoding on AWS Trainium2</h1>
+  <p class="byline">Aayush Poudel · NYU × Annapurna Labs “Hack the Chip” hackathon · October 2026</p>
+  <nav class="links" aria-label="Project links">
+    <a href="https://github.com/apoudel20/trainium-agent-labs/tree/dflash2-neuron/projects/04-dflash2-neuron">Code and reproduction</a>
+    <a href="https://github.com/apoudel20/trainium-agent-labs/tree/dflash2-neuron/projects/04-dflash2-neuron/results">Raw results</a>
+    <a href="https://github.com/apoudel20/trainium-agent-labs/blob/dflash2-neuron/projects/04-dflash2-neuron/NEXT_STEPS.md">Follow-up work</a>
+    <a href="https://huggingface.co/z-lab/Qwen3-8B-DFlash-b16">DFlash model</a>
+    <a href="https://arxiv.org/abs/2602.06036">Paper</a>
+    <a href="https://github.com/vllm-project/vllm-neuron">vLLM-Neuron</a>
+  </nav>
 
-<div class="card">
-Bidirectional query-block attention increases draft acceptance at each draft-token count. Qwen3-8B autoregressive decode throughput is 51.7 tok/s; with the draft at k=8 it is 89.4 tok/s (1.73x).
-Draft acceptance at k=4 is 20.1% with causal attention and 32.7% with bidirectional attention.
+  <p>DFlash is a block-diffusion draft model for speculative decoding: a small model proposes
+  several future tokens in one pass, and the Qwen3-8B target verifies those proposals together.
+  vLLM supported the model on GPU, but the installed Neuron backend failed while loading it
+  (<code>DFlashQwen3ForCausalLM</code> had no <code>from_configs</code> method). This work added
+  the Neuron draft model, proposer, Qwen3 hidden-state export, weight loading, and runner dispatch.</p>
+
+  <div class="summary"><strong>Measured result at k=4:</strong> bidirectional query-block
+  attention raised draft acceptance from <strong>20.1% to 32.7%</strong> and increased Qwen3-8B
+  decode throughput from <strong>1.34x to 1.70x</strong> over the autoregressive baseline.</div>
+
+  <h2>Benchmark</h2>
+  <p>This is a small hackathon benchmark: one request at a time, greedy decoding, three prompts
+  repeated twice, and 128 generated tokens per request. Throughput is total completion tokens
+  divided by total request wall time across those six requests. <em>k</em> is the number of draft
+  positions proposed per target step. Draft acceptance is accepted draft tokens divided by all
+  proposed draft tokens.</p>
+  <p>Every row used one Trainium2 chip with tensor parallelism over two NeuronCores (TP=2), a
+  256-token model length, and the same vLLM settings. The sample is too small to characterize
+  production performance; the per-request median and range show the observed spread.</p>
+
+  <div class="chart"><svg xmlns="http://www.w3.org/2000/svg" width="760" height="426" viewBox="0 0 760 426" role="img">
+<title>Qwen3-8B decode throughput on AWS Trainium2</title>
+<desc>Baseline and DFlash causal and bidirectional query-block mask throughput.</desc>
+<rect width="760" height="426" fill="white"/>
+<text x="380.0" y="27" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="700">Qwen3-8B decode throughput on AWS Trainium2</text>
+<text x="380.0" y="49" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#475569">six requests per configuration; one request at a time; 128 completion tokens each</text>
+<text x="200" y="93" text-anchor="end" font-family="sans-serif" font-size="13">baseline</text>
+<rect x="210" y="77" width="214.4" height="23" rx="2" fill="#64748b"/>
+<text x="432.4" y="93" font-family="sans-serif" font-size="13" font-weight="700">51.7 tok/s</text>
+<text x="200" y="132" text-anchor="end" font-family="sans-serif" font-size="13">k=2 causal</text>
+<rect x="210" y="116" width="268.3" height="23" rx="2" fill="#ea580c"/>
+<text x="486.3" y="132" font-family="sans-serif" font-size="13" font-weight="700">64.7 tok/s</text>
+<text x="200" y="171" text-anchor="end" font-family="sans-serif" font-size="13">k=2 bidirectional</text>
+<rect x="210" y="155" width="306.0" height="23" rx="2" fill="#2563eb"/>
+<text x="524.0" y="171" font-family="sans-serif" font-size="13" font-weight="700">73.8 tok/s</text>
+<text x="200" y="210" text-anchor="end" font-family="sans-serif" font-size="13">k=4 causal</text>
+<rect x="210" y="194" width="287.3" height="23" rx="2" fill="#ea580c"/>
+<text x="505.3" y="210" font-family="sans-serif" font-size="13" font-weight="700">69.3 tok/s</text>
+<text x="200" y="249" text-anchor="end" font-family="sans-serif" font-size="13">k=4 bidirectional</text>
+<rect x="210" y="233" width="365.3" height="23" rx="2" fill="#2563eb"/>
+<text x="583.3" y="249" font-family="sans-serif" font-size="13" font-weight="700">88.1 tok/s</text>
+<text x="200" y="288" text-anchor="end" font-family="sans-serif" font-size="13">k=8 causal</text>
+<rect x="210" y="272" width="286.1" height="23" rx="2" fill="#ea580c"/>
+<text x="504.1" y="288" font-family="sans-serif" font-size="13" font-weight="700">69.0 tok/s</text>
+<text x="200" y="327" text-anchor="end" font-family="sans-serif" font-size="13">k=8 bidirectional</text>
+<rect x="210" y="311" width="370.7" height="23" rx="2" fill="#2563eb"/>
+<text x="588.7" y="327" font-family="sans-serif" font-size="13" font-weight="700">89.4 tok/s</text>
+<text x="200" y="366" text-anchor="end" font-family="sans-serif" font-size="13">k=15 causal</text>
+<rect x="210" y="350" width="279.1" height="23" rx="2" fill="#ea580c"/>
+<text x="497.1" y="366" font-family="sans-serif" font-size="13" font-weight="700">67.3 tok/s</text>
+</svg>
 </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Configuration</th><th>Mean tok/s</th><th>Median</th><th>Range</th><th>Speedup</th><th>Acceptance</th></tr></thead>
+    <tbody><tr><td>baseline</td><td>51.7</td><td>51.7</td><td>51.6–51.7</td><td>1.00x</td><td>n/a</td></tr><tr><td>k=2 causal</td><td>64.7</td><td>65.0</td><td>61.4–69.3</td><td>1.25x</td><td>33.1%</td></tr><tr><td>k=2 bidirectional</td><td>73.8</td><td>76.0</td><td>69.7–76.1</td><td>1.43x</td><td>44.0%</td></tr><tr><td>k=4 causal</td><td>69.3</td><td>66.5</td><td>64.8–78.0</td><td>1.34x</td><td>20.1%</td></tr><tr class="highlight"><td>k=4 bidirectional</td><td>88.1</td><td>85.9</td><td>78.4–104.1</td><td>1.70x</td><td>32.7%</td></tr><tr><td>k=8 causal</td><td>69.0</td><td>68.2</td><td>61.6–77.5</td><td>1.33x</td><td>11.1%</td></tr><tr><td>k=8 bidirectional</td><td>89.4</td><td>89.2</td><td>87.3–94.6</td><td>1.73x</td><td>17.8%</td></tr><tr><td>k=15 causal</td><td>67.3</td><td>65.7</td><td>63.4–74.4</td><td>1.30x</td><td>6.0%</td></tr></tbody>
+  </table></div>
 
-<h2>Throughput</h2><div class="card"><svg viewBox="0 0 640 300" width="100%" style="max-width:680px"><text x="320.0" y="20" text-anchor="middle" font-size="15" font-weight="600">Decode throughput (tok/s)</text><line x1="48" y1="252" x2="592" y2="252" stroke="#888"/><line x1="48" y1="48" x2="48" y2="252" stroke="#888"/><line x1="48" y1="252.0" x2="592" y2="252.0" stroke="#eee"/><text x="42" y="256.0" text-anchor="end" font-size="10" fill="#666">0</text><line x1="48" y1="211.2" x2="592" y2="211.2" stroke="#eee"/><text x="42" y="215.2" text-anchor="end" font-size="10" fill="#666">20</text><line x1="48" y1="170.4" x2="592" y2="170.4" stroke="#eee"/><text x="42" y="174.4" text-anchor="end" font-size="10" fill="#666">40</text><line x1="48" y1="129.6" x2="592" y2="129.6" stroke="#eee"/><text x="42" y="133.6" text-anchor="end" font-size="10" fill="#666">60</text><line x1="48" y1="88.8" x2="592" y2="88.8" stroke="#eee"/><text x="42" y="92.8" text-anchor="end" font-size="10" fill="#666">80</text><line x1="48" y1="48.0" x2="592" y2="48.0" stroke="#eee"/><text x="42" y="52.0" text-anchor="end" font-size="10" fill="#666">100</text><rect x="70.7" y="146.5" width="40.8" height="105.5" fill="#9aa0a6"><title>autoregressive baseline k=2: 51.7 tok/s</title></rect><text x="91.1" y="143.5" text-anchor="middle" font-size="9" fill="#333">51.7</text><rect x="116.0" y="120.0" width="40.8" height="132.0" fill="#e8893b"><title>causal k=2: 64.7 tok/s</title></rect><text x="136.4" y="117.0" text-anchor="middle" font-size="9" fill="#333">64.7</text><rect x="161.3" y="101.4" width="40.8" height="150.6" fill="#2f7ed8"><title>bidirectional k=2: 73.8 tok/s</title></rect><text x="181.7" y="98.4" text-anchor="middle" font-size="9" fill="#333">73.8</text><text x="138.7" y="268" text-anchor="middle" font-size="11">k=2</text><rect x="252.0" y="146.5" width="40.8" height="105.5" fill="#9aa0a6"><title>autoregressive baseline k=4: 51.7 tok/s</title></rect><text x="272.4" y="143.5" text-anchor="middle" font-size="9" fill="#333">51.7</text><rect x="297.3" y="110.6" width="40.8" height="141.4" fill="#e8893b"><title>causal k=4: 69.3 tok/s</title></rect><text x="317.7" y="107.6" text-anchor="middle" font-size="9" fill="#333">69.3</text><rect x="342.7" y="72.3" width="40.8" height="179.7" fill="#2f7ed8"><title>bidirectional k=4: 88.1 tok/s</title></rect><text x="363.1" y="69.3" text-anchor="middle" font-size="9" fill="#333">88.1</text><text x="320.0" y="268" text-anchor="middle" font-size="11">k=4</text><rect x="433.3" y="146.5" width="40.8" height="105.5" fill="#9aa0a6"><title>autoregressive baseline k=8: 51.7 tok/s</title></rect><text x="453.7" y="143.5" text-anchor="middle" font-size="9" fill="#333">51.7</text><rect x="478.7" y="111.2" width="40.8" height="140.8" fill="#e8893b"><title>causal k=8: 69.0 tok/s</title></rect><text x="499.1" y="108.2" text-anchor="middle" font-size="9" fill="#333">69</text><rect x="524.0" y="69.6" width="40.8" height="182.4" fill="#2f7ed8"><title>bidirectional k=8: 89.4 tok/s</title></rect><text x="544.4" y="66.6" text-anchor="middle" font-size="9" fill="#333">89.4</text><text x="501.3" y="268" text-anchor="middle" font-size="11">k=8</text><rect x="58" y="34" width="11" height="11" fill="#9aa0a6"/><text x="73" y="44" font-size="11">autoregressive baseline</text><rect x="204" y="34" width="11" height="11" fill="#e8893b"/><text x="219" y="44" font-size="11">causal</text><rect x="266" y="34" width="11" height="11" fill="#2f7ed8"/><text x="281" y="44" font-size="11">bidirectional</text></svg></div>
-<h2>Draft acceptance rate</h2><div class="card"><svg viewBox="0 0 640 300" width="100%" style="max-width:680px"><text x="320.0" y="20" text-anchor="middle" font-size="15" font-weight="600">Draft acceptance rate (%)</text><line x1="48" y1="252" x2="592" y2="252" stroke="#888"/><line x1="48" y1="48" x2="48" y2="252" stroke="#888"/><line x1="48" y1="252.0" x2="592" y2="252.0" stroke="#eee"/><text x="42" y="256.0" text-anchor="end" font-size="10" fill="#666">0</text><line x1="48" y1="211.2" x2="592" y2="211.2" stroke="#eee"/><text x="42" y="215.2" text-anchor="end" font-size="10" fill="#666">10</text><line x1="48" y1="170.4" x2="592" y2="170.4" stroke="#eee"/><text x="42" y="174.4" text-anchor="end" font-size="10" fill="#666">20</text><line x1="48" y1="129.6" x2="592" y2="129.6" stroke="#eee"/><text x="42" y="133.6" text-anchor="end" font-size="10" fill="#666">30</text><line x1="48" y1="88.8" x2="592" y2="88.8" stroke="#eee"/><text x="42" y="92.8" text-anchor="end" font-size="10" fill="#666">40</text><line x1="48" y1="48.0" x2="592" y2="48.0" stroke="#eee"/><text x="42" y="52.0" text-anchor="end" font-size="10" fill="#666">50</text><rect x="78.2" y="117.0" width="54.4" height="135.0" fill="#e8893b"><title>causal k=2: 33.1%</title></rect><text x="105.4" y="114.0" text-anchor="middle" font-size="9" fill="#333">33.1</text><rect x="138.7" y="72.5" width="54.4" height="179.5" fill="#2f7ed8"><title>bidirectional k=2: 44.0%</title></rect><text x="165.9" y="69.5" text-anchor="middle" font-size="9" fill="#333">44</text><text x="138.7" y="268" text-anchor="middle" font-size="11">k=2</text><rect x="259.6" y="170.0" width="54.4" height="82.0" fill="#e8893b"><title>causal k=4: 20.1%</title></rect><text x="286.8" y="167.0" text-anchor="middle" font-size="9" fill="#333">20.1</text><rect x="320.0" y="118.6" width="54.4" height="133.4" fill="#2f7ed8"><title>bidirectional k=4: 32.7%</title></rect><text x="347.2" y="115.6" text-anchor="middle" font-size="9" fill="#333">32.7</text><text x="320.0" y="268" text-anchor="middle" font-size="11">k=4</text><rect x="440.9" y="206.7" width="54.4" height="45.3" fill="#e8893b"><title>causal k=8: 11.1%</title></rect><text x="468.1" y="203.7" text-anchor="middle" font-size="9" fill="#333">11.1</text><rect x="501.3" y="179.4" width="54.4" height="72.6" fill="#2f7ed8"><title>bidirectional k=8: 17.8%</title></rect><text x="528.5" y="176.4" text-anchor="middle" font-size="9" fill="#333">17.8</text><text x="501.3" y="268" text-anchor="middle" font-size="11">k=8</text><rect x="58" y="34" width="11" height="11" fill="#e8893b"/><text x="73" y="44" font-size="11">causal</text><rect x="120" y="34" width="11" height="11" fill="#2f7ed8"/><text x="135" y="44" font-size="11">bidirectional</text></svg></div>
-<h2>Accepted tokens by position (k=8)</h2><div class="card"><svg viewBox="0 0 640 300" width="100%" style="max-width:680px"><text x="320.0" y="20" text-anchor="middle" font-size="15" font-weight="600">Accepted tokens by draft position (k=8)</text><line x1="48" y1="252" x2="592" y2="252" stroke="#888"/><line x1="48" y1="48" x2="48" y2="252" stroke="#888"/><text x="42" y="256.0" text-anchor="end" font-size="10" fill="#666">0</text><line x1="48" y1="252.0" x2="592" y2="252.0" stroke="#eee"/><text x="42" y="215.2" text-anchor="end" font-size="10" fill="#666">41</text><line x1="48" y1="211.2" x2="592" y2="211.2" stroke="#eee"/><text x="42" y="174.4" text-anchor="end" font-size="10" fill="#666">82</text><line x1="48" y1="170.4" x2="592" y2="170.4" stroke="#eee"/><text x="42" y="133.6" text-anchor="end" font-size="10" fill="#666">122</text><line x1="48" y1="129.6" x2="592" y2="129.6" stroke="#eee"/><text x="42" y="92.8" text-anchor="end" font-size="10" fill="#666">163</text><line x1="48" y1="88.8" x2="592" y2="88.8" stroke="#eee"/><text x="42" y="52.0" text-anchor="end" font-size="10" fill="#666">204</text><line x1="48" y1="48.0" x2="592" y2="48.0" stroke="#eee"/><text x="48.0" y="268" text-anchor="middle" font-size="10">0</text><text x="125.7" y="268" text-anchor="middle" font-size="10">1</text><text x="203.4" y="268" text-anchor="middle" font-size="10">2</text><text x="281.1" y="268" text-anchor="middle" font-size="10">3</text><text x="358.9" y="268" text-anchor="middle" font-size="10">4</text><text x="436.6" y="268" text-anchor="middle" font-size="10">5</text><text x="514.3" y="268" text-anchor="middle" font-size="10">6</text><text x="592.0" y="268" text-anchor="middle" font-size="10">7</text><polyline points="48.0,82.0 125.7,170.0 203.4,203.0 281.1,225.0 358.9,235.0 436.6,243.0 514.3,246.0 592.0,250.0" fill="none" stroke="#e8893b" stroke-width="2.5"/><circle cx="48.0" cy="82.0" r="3" fill="#e8893b"><title>causal pos0: 170</title></circle><circle cx="125.7" cy="170.0" r="3" fill="#e8893b"><title>causal pos1: 82</title></circle><circle cx="203.4" cy="203.0" r="3" fill="#e8893b"><title>causal pos2: 49</title></circle><circle cx="281.1" cy="225.0" r="3" fill="#e8893b"><title>causal pos3: 27</title></circle><circle cx="358.9" cy="235.0" r="3" fill="#e8893b"><title>causal pos4: 17</title></circle><circle cx="436.6" cy="243.0" r="3" fill="#e8893b"><title>causal pos5: 9</title></circle><circle cx="514.3" cy="246.0" r="3" fill="#e8893b"><title>causal pos6: 6</title></circle><circle cx="592.0" cy="250.0" r="3" fill="#e8893b"><title>causal pos7: 2</title></circle><polyline points="48.0,48.0 125.7,134.0 203.4,188.0 281.1,219.0 358.9,235.0 436.6,245.0 514.3,247.0 592.0,247.0" fill="none" stroke="#2f7ed8" stroke-width="2.5"/><circle cx="48.0" cy="48.0" r="3" fill="#2f7ed8"><title>bidirectional pos0: 204</title></circle><circle cx="125.7" cy="134.0" r="3" fill="#2f7ed8"><title>bidirectional pos1: 118</title></circle><circle cx="203.4" cy="188.0" r="3" fill="#2f7ed8"><title>bidirectional pos2: 64</title></circle><circle cx="281.1" cy="219.0" r="3" fill="#2f7ed8"><title>bidirectional pos3: 33</title></circle><circle cx="358.9" cy="235.0" r="3" fill="#2f7ed8"><title>bidirectional pos4: 17</title></circle><circle cx="436.6" cy="245.0" r="3" fill="#2f7ed8"><title>bidirectional pos5: 7</title></circle><circle cx="514.3" cy="247.0" r="3" fill="#2f7ed8"><title>bidirectional pos6: 5</title></circle><circle cx="592.0" cy="247.0" r="3" fill="#2f7ed8"><title>bidirectional pos7: 5</title></circle><rect x="58" y="34" width="11" height="11" fill="#e8893b"/><text x="73" y="44" font-size="11">causal</text><rect x="120" y="34" width="11" height="11" fill="#2f7ed8"/><text x="135" y="44" font-size="11">bidirectional</text></svg>
-<p><small>Bidirectional attention increases acceptance most at the later draft positions (1-3), where the
-causal mask was starving the draft of intra-block context.</small></p></div>
-
-<h2>Results table</h2>
-<table><tr><th>config</th><th>tok/s</th><th>speedup</th><th>draft acceptance</th></tr>
-<tr><td>autoregressive baseline</td><td style='text-align:right'>51.7</td><td style='text-align:right'>1.00x</td><td style='text-align:right'>n/a</td></tr>
-<tr><td>DFlash k=2 causal</td><td style='text-align:right'>64.7</td><td style='text-align:right'>1.25x</td><td style='text-align:right'>33.1%</td></tr>
-<tr><td>DFlash k=2 <b>bidirectional</b></td><td style='text-align:right'><b>73.8</b></td><td style='text-align:right'><b>1.43x</b></td><td style='text-align:right'><b>44.0%</b></td></tr>
-<tr><td>DFlash k=4 causal</td><td style='text-align:right'>69.3</td><td style='text-align:right'>1.34x</td><td style='text-align:right'>20.1%</td></tr>
-<tr><td>DFlash k=4 <b>bidirectional</b></td><td style='text-align:right'><b>88.1</b></td><td style='text-align:right'><b>1.70x</b></td><td style='text-align:right'><b>32.7%</b></td></tr>
-<tr><td>DFlash k=8 causal</td><td style='text-align:right'>69.0</td><td style='text-align:right'>1.33x</td><td style='text-align:right'>11.1%</td></tr>
-<tr><td>DFlash k=8 <b>bidirectional</b></td><td style='text-align:right'><b>89.4</b></td><td style='text-align:right'><b>1.73x</b></td><td style='text-align:right'><b>17.8%</b></td></tr>
-</table>
-<p><small>Generated by make_dashboard.py from /workspace/results/bench_*.txt. All numbers measured on-device this session.</small></p>
-<h2>Next steps (ROI-ranked)</h2>
-<div class="card">
-<p>Increasing the draft-token count has limited headroom. In the k=8 run, accepted
-tokens by position are 204/118/64/33/17/7/5/5; acceptance falls off after position 4.
-Extra positions (k=15) contribute few accepted tokens while adding a target-verification cost per token, so
-causal k=15 (67.3 tok/s) was slower than k=8 (69.0 tok/s). Draft quality, rather than token count, is the limiting factor.</p>
-<ol>
-<li>DFlash2 draft (z-lab/Qwen3.8-27B-DFlash2) with the candidate selector: top-16 rerank per position via a
-predecessor/successor transition score, which raises acceptance across positions. Components implemented and verified against the released weights.</li>
-<li>Qwen3.8-27B with DFlash2, end to end: both Qwen3.5 attention variants and the DFlash2 convolution/selector are verified against the released weights. Remaining work is the Neuron hybrid-decoder assembly.</li>
-<li>Bidirectional k=12/k=15: not yet measured with the bidirectional patch. The per-position
-data suggests a plateau; running these would confirm the upper bound.</li>
-</ol>
-<p><small>Full detail in NEXT_STEPS.md. New runs need the Trainium pod (EKS creds currently expired).</small></p>
+  <h2>Effect of the query-block mask</h2>
+  <p>The DFlash draft was trained with bidirectional attention inside its proposed-token block.
+  The first Neuron version reused the causal decode mask. Replacing that active-block mask with
+  an all-ones mask improved k=4 acceptance from 20.1% to 32.7% and throughput from 69.3 to
+  88.1 tok/s.</p>
+  <div class="chart"><svg xmlns="http://www.w3.org/2000/svg" width="760" height="350" viewBox="0 0 760 350" role="img">
+<title>Accepted DFlash tokens by draft position at k=8</title>
+<desc>Counts for causal and bidirectional query-block attention.</desc>
+<rect width="760" height="350" fill="white"/>
+<text x="380.0" y="28" text-anchor="middle" font-family="sans-serif" font-size="19" font-weight="700">Accepted DFlash tokens by position (k=8)</text>
+<line x1="65" y1="285.0" x2="630" y2="285.0" stroke="#e2e8f0"/>
+<text x="57" y="289.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">0</text>
+<line x1="65" y1="231.1" x2="630" y2="231.1" stroke="#e2e8f0"/>
+<text x="57" y="235.1" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">50</text>
+<line x1="65" y1="177.2" x2="630" y2="177.2" stroke="#e2e8f0"/>
+<text x="57" y="181.2" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">100</text>
+<line x1="65" y1="123.2" x2="630" y2="123.2" stroke="#e2e8f0"/>
+<text x="57" y="127.2" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">150</text>
+<line x1="65" y1="69.3" x2="630" y2="69.3" stroke="#e2e8f0"/>
+<text x="57" y="73.3" text-anchor="end" font-family="sans-serif" font-size="11" fill="#475569">200</text>
+<text x="65.0" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">0</text>
+<text x="145.7" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">1</text>
+<text x="226.4" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">2</text>
+<text x="307.1" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">3</text>
+<text x="387.9" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">4</text>
+<text x="468.6" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">5</text>
+<text x="549.3" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">6</text>
+<text x="630.0" y="307" text-anchor="middle" font-family="sans-serif" font-size="11">7</text>
+<polyline points="65.0,101.7 145.7,196.6 226.4,232.2 307.1,255.9 387.9,266.7 468.6,275.3 549.3,278.5 630.0,282.8" fill="none" stroke="#ea580c" stroke-width="3"/>
+<circle cx="65.0" cy="101.7" r="4" fill="#ea580c"/>
+<circle cx="145.7" cy="196.6" r="4" fill="#ea580c"/>
+<circle cx="226.4" cy="232.2" r="4" fill="#ea580c"/>
+<circle cx="307.1" cy="255.9" r="4" fill="#ea580c"/>
+<circle cx="387.9" cy="266.7" r="4" fill="#ea580c"/>
+<circle cx="468.6" cy="275.3" r="4" fill="#ea580c"/>
+<circle cx="549.3" cy="278.5" r="4" fill="#ea580c"/>
+<circle cx="630.0" cy="282.8" r="4" fill="#ea580c"/>
+<polyline points="65.0,65.0 145.7,157.7 226.4,216.0 307.1,249.4 387.9,266.7 468.6,277.5 549.3,279.6 630.0,279.6" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="65.0" cy="65.0" r="4" fill="#2563eb"/>
+<circle cx="145.7" cy="157.7" r="4" fill="#2563eb"/>
+<circle cx="226.4" cy="216.0" r="4" fill="#2563eb"/>
+<circle cx="307.1" cy="249.4" r="4" fill="#2563eb"/>
+<circle cx="387.9" cy="266.7" r="4" fill="#2563eb"/>
+<circle cx="468.6" cy="277.5" r="4" fill="#2563eb"/>
+<circle cx="549.3" cy="279.6" r="4" fill="#2563eb"/>
+<circle cx="630.0" cy="279.6" r="4" fill="#2563eb"/>
+<line x1="650" y1="84" x2="676" y2="84" stroke="#ea580c" stroke-width="3"/>
+<text x="684" y="88" font-family="sans-serif" font-size="12">causal</text>
+<line x1="650" y1="108" x2="676" y2="108" stroke="#2563eb" stroke-width="3"/>
+<text x="684" y="112" font-family="sans-serif" font-size="12">bidirectional</text>
+<text x="347.5" y="334" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#475569">draft position (0 is the first proposal)</text>
+</svg>
 </div>
-</body></html>
+  <p>At k=8, the largest absolute increases in accepted tokens were at positions 0 and 1
+  (+34 and +36); the largest relative increases were at positions 1 and 2 (+44% and +31%).
+  Positions 4–6 were unchanged or slightly lower. Bidirectional access to the proposed-token
+  block is a likely explanation, consistent with the training configuration, but these counts
+  alone do not establish causality.</p>
+
+  <h2>Reproducibility and scope</h2>
+  <p>By default the installer applies the bidirectional mask used for the headline result.
+  <code>bash apply.sh --causal</code> reproduces the earlier causal build. Each committed result
+  log records its mask mode and patch state. The exact commands, tested container image, raw logs,
+  implementation notes, and known limitations are in the
+  <a href="https://github.com/apoudel20/trainium-agent-labs/tree/dflash2-neuron/projects/04-dflash2-neuron">project README</a>.</p>
+  <p>The served checkpoint is <strong>DFlash</strong>
+  (<code>z-lab/Qwen3-8B-DFlash-b16</code>), not the later DFlash 2 architecture. A separate set of
+  component checks for the later Qwen3.8-27B DFlash 2 model is documented as follow-up work; it
+  is not an end-to-end server.</p>
+  <p>The speculative k=4 output matched the baseline's greedy text for roughly 95 tokens and then
+  diverged on a near-tie, consistent with bf16 differences between single-token and multi-token
+  target kernels. Accepted drafts are checked by the target, but no bit-exact output claim is made.</p>
+
+  <h2>Context and related work</h2>
+  <p>This repository is a fork of the organizers'
+  <a href="https://github.com/yahavb/trainium-agent-labs">trainium-agent-labs</a> workshop project.
+  The DFlash port was developed independently during the hackathon. Broader upstream DFlash work
+  exists in <a href="https://github.com/vllm-project/vllm-neuron/pull/47">vllm-neuron #47</a> and
+  <a href="https://github.com/vllm-project/vllm-neuron/pull/50">#50</a>.</p>
+
+  <footer><a href="https://github.com/apoudel20/trainium-agent-labs/tree/dflash2-neuron/projects/04-dflash2-neuron">View the code and full reproduction notes on GitHub</a>.</footer>
+</main></body></html>
