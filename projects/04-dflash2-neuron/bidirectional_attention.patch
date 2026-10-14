@@ -17,7 +17,7 @@
 -        torch.ones(s_active, s_active, dtype=torch.float32, device=pos_ids.device)
 -    )
 +    # Build causal mask over the two s_active dimensions (dim 0 and dim 3).
-+    # DFlash2 draft query block is bidirectional: every active (draft) token
++    # DFlash draft query block is bidirectional: every active (draft) token
 +    # attends to every other active token, so use an all-ones active mask.
 +    if bidirectional_active:
 +        causal = torch.ones(

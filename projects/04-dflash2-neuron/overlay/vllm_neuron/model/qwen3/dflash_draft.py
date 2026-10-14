@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-DFlash2 draft model for the Neuron backend (Qwen3 target).
+DFlash draft model for the Neuron backend (Qwen3 target).
 
 Checkpoint (z-lab/Qwen3-8B-DFlash-b16): 5 Qwen3 decoder layers + fc + hidden_norm
 + norm. embed_tokens / lm_head are shared with the target (loaded by the proposer).
@@ -14,9 +14,8 @@ One propose step:
                reads the context K/V from the cache.
   3. Draft:    greedy tokens at the MASK positions -> num_spec draft tokens.
 
-Simplification vs. the GPU reference: attention inside the query block is causal
-(the Neuron decode kernel), not bidirectional. The target still verifies every draft
-token, so output is unchanged; only the acceptance rate can be lower.
+Default installation: the query block uses bidirectional attention, matching the DFlash
+training configuration. `bash apply.sh --causal` reproduces the original causal MVP.
 """
 
 import torch
@@ -62,7 +61,7 @@ def _extract_accepted_tokens(
 
 
 class DFlashQwen3NeuronDraft(Qwen3ForCausalLM):
-    """Neuron DFlash2 draft: Qwen3 backbone (5 layers) + fc + hidden_norm."""
+    """Neuron DFlash draft: Qwen3 backbone (5 layers) + fc + hidden_norm."""
 
     def __init__(self, config: Qwen3Config, start_layer_idx: int = 0, dflash_config=None):
         super().__init__(config)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# serve_dflash2.sh — launch Qwen3-8B + DFlash2 speculative decoding on Neuron (dev config).
+# serve_dflash2.sh — launch Qwen3-8B + DFlash speculative decoding on Neuron.
 set -uo pipefail
 PORT=${PORT:-8000}
 
@@ -36,7 +36,7 @@ ln -sfn "$LOG" /tmp/dflash2_test.log
 
 NUM_SPEC=${DFLASH_NUM_SPEC:-4}
 SPEC_CONFIG="{\"model\": \"z-lab/Qwen3-8B-DFlash-b16\", \"num_speculative_tokens\": ${NUM_SPEC}, \"method\": \"dflash\"}"
-echo "Starting Qwen3-8B + DFlash2 (${NUM_SPEC} draft tokens). Log: $LOG (linked as /tmp/dflash2_test.log)"
+echo "Starting Qwen3-8B + DFlash (${NUM_SPEC} draft tokens). Log: $LOG (linked as /tmp/dflash2_test.log)"
 
 NEURON_SKIP_EFA_AFFINITY=1 PYTHONUNBUFFERED=1 nohup vllm serve Qwen/Qwen3-8B \
     --speculative-config "$SPEC_CONFIG" \

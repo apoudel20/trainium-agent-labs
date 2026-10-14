@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# serve_baseline.sh — plain Qwen3-8B with the SAME dev config as serve_dflash2.sh (no DFlash2),
+# serve_baseline.sh — plain Qwen3-8B with the SAME config as serve_dflash2.sh (no DFlash).
 # for an apples-to-apples throughput comparison.
 set -uo pipefail
 PORT=${PORT:-8000}

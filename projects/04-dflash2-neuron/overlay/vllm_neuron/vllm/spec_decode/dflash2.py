@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""DFlash2 speculative-decoding proposer for Neuron.
+"""DFlash speculative-decoding proposer for Neuron.
 
-Standalone copy of the Neuron proposer, adapted for DFlash2 (no dependency on the
-Eagle implementation). Differences: draft arch is DFlashDraftModel, the target
-feeds len(target_layer_ids) hidden states (not 3), and embed_tokens / lm_head are
-loaded from the target checkpoint because DFlash2 checkpoints do not ship them.
+The historical `DFlash2Proposer` class name is retained for patch compatibility; this
+implementation serves the original z-lab/Qwen3-8B-DFlash-b16 checkpoint, not DFlash 2.
+It is standalone rather than subclassing the Eagle proposer. The target supplies the
+configured hidden-state layers, and the proposer loads embedding and LM-head weights from
+the target because the DFlash checkpoint does not ship them.
 """
 import contextlib
 import logging

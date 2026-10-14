@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # wait_log.sh — poll a vLLM log every 1s; exit as soon as the run fails or is ready.
 # Prints only the useful lines (root-cause error or ready message).
-# Usage: bash /workspace/wait_log.sh [logfile] [timeout_s]
+# Usage: bash tools/wait_log.sh [logfile] [timeout_s]
 LOG=${1:-/tmp/dflash2_test.log}
 TIMEOUT=${2:-60}
 if (( TIMEOUT > 120 )); then TIMEOUT=120; fi   # hard cap: never block long
